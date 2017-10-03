@@ -158,10 +158,11 @@ class Root:
         self.mail_gruender = Template(os.path.join(currdir, 'mail_gruender.html'))
         self.mail_notar = Template(os.path.join(currdir, 'mail_notar.html'))
 
-        self.documents = [os.path.join(currdir, "documents", "Gründungsurkunde.docx"),
+        print(currdir)
+        self.documents = [os.path.join(currdir, "documents", "Gruendungsurkunde.docx"),
                           os.path.join(currdir, "documents", "Statuten.docx"),
                           os.path.join(currdir, "documents", "Wahlannahmeerklärung.doc"),
-                          os.path.join(currdir, "documents", "Lex Friedrich.docx"),
+                          os.path.join(currdir, "documents", "Lex-Friedrich.docx"),
                           os.path.join(currdir, "documents", "Stampa.docx"),
                           os.path.join(currdir, "documents", "ZKB_Brief.doc")
                           ]
