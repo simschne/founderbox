@@ -1,6 +1,13 @@
 # coding=utf-8
 import datetime
 import tempfile
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.utils import COMMASPACE
+from smtplib import SMTP
+from typing import List
+from zipfile import ZipFile, ZIP_DEFLATED
 from collections import defaultdict
 import cherrypy as cherrypy
 import os
@@ -9,10 +16,11 @@ from mailmerge import MailMerge
 from wtforms import Form, StringField
 import dominate.tags as html
 from wtforms.fields.core import SelectField
-from wtforms.fields.html5 import DateField
+from wtforms.fields.html5 import DateField, EmailField
 from wtforms.validators import InputRequired
 
-currdir = os.path.dirname(__file__)
+
+currdir = os.path.abspath(os.path.dirname(__file__))
 
 
 cherrypy.config.update({
@@ -72,9 +80,6 @@ cherrypy.tools.check_ssl = cherrypy.Tool('before_handler', check_ssl)
 cherrypy.tools.secureheaders = cherrypy.Tool('before_finalize', secureheaders, priority=60)
 
 
-template = os.path.join(currdir, "documents/02 Gründungsurkunde (...) GmbH.docx")
-
-
 class SimpleForm(Form):
 
     def html(self, action: str, method: str='GET', enctype: str="multipart/form-data", id_: str='my-form') -> html.html_tag:
@@ -99,16 +104,13 @@ class SimpleForm(Form):
 
         # submit button
         button_row = form_html.add(html.div(cls='text-right row_vertical_offset'))
-        button_row.add(html.button('Senden', type="submit", id='submit_form_button', cls='btn btn-primary'))
+        button_row.add(html.button('Senden', type="submit", id='submit_form_button', cls='btn btn-success'))
 
         return content
 
 
-
 class KantonsForm(SimpleForm):
     kanton = SelectField(label='Kanton', choices=(('Zug', 'Zug'), ('Zürich', 'Zürich')), validators=[InputRequired()])
-
-
 
 
 class NewUserForm(SimpleForm):
@@ -126,11 +128,16 @@ class NewUserForm(SimpleForm):
     anrede_gruender = SelectField(label='Anrede', choices=(('Herr', 'Herr'), ('Frau', 'Frau')))
     vorname_gruender = StringField(label='Vorname')
     nachname_gruender = StringField(label='Nachname')
+
     telefon_gruender = StringField(label='Telefon')
+    email_gruender = EmailField(label='Email')
+
     geburtstag_gruender = DateField(label='Geburtsdatum', format='%d.%m.%Y')
     buergerort_gruender = StringField(label='Bürgerort')
     strasse_gruender = StringField(label='Adresse')
     wohnort_gruender = StringField(label='Postleitzahl und Ort')
+
+    datum_gruendung = DateField(label='Gewünschtes Gründungsdatum', format='%d.%m.%Y')
 
     # bank = StringField()
 
@@ -138,15 +145,32 @@ class NewUserForm(SimpleForm):
     zweck = StringField(label='Zweck')
 
 
+def zipdir(path, ziph):
+    # ziph is zipfile handle
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            ziph.write(os.path.join(root, file))
+
+
 class Root:
     def __init__(self):
         self.template = Template(os.path.join(currdir, 'template.html'))
+        self.mail_gruender = Template(os.path.join(currdir, 'mail_gruender.html'))
+        self.mail_notar = Template(os.path.join(currdir, 'mail_notar.html'))
+
+        self.documents = [os.path.join(currdir, "documents", "Gründungsurkunde.docx"),
+                          os.path.join(currdir, "documents", "Statuten.docx"),
+                          os.path.join(currdir, "documents", "Wahlannahmeerklärung.doc"),
+                          os.path.join(currdir, "documents", "Lex Friedrich.docx"),
+                          os.path.join(currdir, "documents", "Stampa.docx"),
+                          os.path.join(currdir, "documents", "ZKB_Brief.doc")
+                          ]
 
     @cherrypy.expose
     def index(self):
         with html.div() as content:
             html.div('Blabla Irgendwas Disclaimer')
-            html.button('Ich bin mit den AGBs einverstanden', cls='btn btn-success', href='/step1')
+            html.div(html.a('Ich bin mit den AGBs einverstanden', cls='btn btn-success', href='/step1'))
         return self.template.render(content=content)
 
     @cherrypy.expose
@@ -160,28 +184,95 @@ class Root:
 
     @cherrypy.expose
     def step2(self, **kwargs):
+        if kwargs.get('kanton', None) is None:
+            raise cherrypy.HTTPRedirect('/step1')
+
         form = NewUserForm()
         return self.template.render(content=form.html(action='/create'))
 
     @cherrypy.expose
+    def download(self, filename):
+        # noinspection PyProtectedMember
+        default_tmp_dir = tempfile._get_default_tempdir()
+        path = os.path.join(default_tmp_dir, filename)
+        mime_type = "application/zip"
+        return serve_file(os.path.abspath(path), disposition='attachment', content_type=mime_type, name='Dokumente.zip')
+
+    @cherrypy.expose
     def create(self, **kwargs):
+
         kwargs['bank'] = 'ZKB, Abteilung SCBJ3, Postfach, 8010 Zürich'
         kwargs['datum_auftrag'] = datetime.date.today().strftime('%d.%m.%Y')
 
-        document = MailMerge(template)
-        print(document.get_merge_fields())
-        document.merge(**kwargs)
-
         # noinspection PyProtectedMember
         default_tmp_dir = tempfile._get_default_tempdir()
+
+        files = []
+
+        for d in self.documents:
+            filename = os.path.basename(d)
+            document = MailMerge(d)
+            # print(document.get_merge_fields())
+            document.merge(**kwargs)
+
+            # noinspection PyProtectedMember
+            temp_name = next(tempfile._get_candidate_names())
+            path = os.path.join(default_tmp_dir, temp_name)
+            document.write(path)
+            files.append((path, filename))
+
         # noinspection PyProtectedMember
         temp_name = next(tempfile._get_candidate_names())
-        name = 'generated.docx'
-        path = os.path.join(default_tmp_dir, temp_name)
-        document.write(path)
+        zipfile = os.path.join(default_tmp_dir, temp_name)
+        with ZipFile(zipfile, 'w', ZIP_DEFLATED) as archive:
+            for f, name in files:
+                archive.write(f, name)
 
-        mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        return serve_file(os.path.abspath(path), disposition='attachment', content_type=mime_type, name=name)
+        content = html.div()
+        content.add_raw_string(self.mail_gruender.render(**kwargs))
+        content.add(html.div(html.a('Download Dokumente', cls='btn btn-success', href=f'/download/{temp_name}')))
+
+        # Send mail
+        sendmail(subject='Ihre Gründung',
+                 content=str(self.mail_notar.render(**kwargs)),
+                 receiver=['christian@codefour.ch, simon.schnetzler@gmail.com'],
+                 cc=[kwargs.get('email_gruender', '')],
+                 files=[zipfile])
+
+        return self.template.render(content=content)
+
+
+def sendmail(subject: str,
+             content: str,
+             receiver: List[str],
+             cc: List[str],
+             sender: str='gruendungsroboter@codefour.ch',
+             files=List[str],
+             password: str='-1Yxc/+]'):
+
+    msg = MIMEMultipart()
+    msg['From'] = sender
+    msg['To'] = COMMASPACE.join(receiver)
+    msg['CC'] = COMMASPACE.join(cc)
+    msg['Subject'] = subject
+
+    msg.attach(MIMEText(content, _subtype='html'))
+
+    for f in files or []:
+        with open(f, "rb") as fil:
+            part = MIMEApplication(
+                fil.read(),
+                Name='Dokumente.zip'
+            )
+        # After the file is closed
+        part['Content-Disposition'] = 'attachment; filename="Dokumente.zip"'
+        msg.attach(part)
+
+    conn = SMTP('mail.netzone.ch')
+    conn.set_debuglevel(False)
+    conn.login(sender, password)
+    conn.sendmail(sender, receiver, msg.as_string())
+    conn.close()
 
 
 conf = {
