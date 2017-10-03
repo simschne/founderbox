@@ -39,7 +39,7 @@ cherrypy.config.update({
 })
 
 
-class Template(object):
+class Template:
 
     def __init__(self, filename: str):
         self.template = None
@@ -236,8 +236,7 @@ class Root:
         # Send mail
         sendmail(subject='Ihre Gründung',
                  content=str(self.mail_notar.render(**kwargs)),
-                 receiver=['christian@codefour.ch, simon.schnetzler@gmail.com'],
-                 cc=[kwargs.get('email_gruender', '')],
+                 receiver=['christian@codefour.ch, simon.schnetzler@gmail.com', kwargs.get('email_gruender', '')],
                  files=[zipfile])
 
         return self.template.render(content=content)
@@ -246,7 +245,6 @@ class Root:
 def sendmail(subject: str,
              content: str,
              receiver: List[str],
-             cc: List[str],
              sender: str='gruendungsroboter@codefour.ch',
              files=List[str],
              password: str='-1Yxc/+]'):
@@ -254,7 +252,6 @@ def sendmail(subject: str,
     msg = MIMEMultipart()
     msg['From'] = sender
     msg['To'] = COMMASPACE.join(receiver)
-    msg['CC'] = COMMASPACE.join(cc)
     msg['Subject'] = subject
 
     msg.attach(MIMEText(content, _subtype='html'))
@@ -277,12 +274,12 @@ def sendmail(subject: str,
 
 
 conf = {
-    '/css': {
-        'tools.staticdir.on': True,
-        'tools.staticdir.dir': os.path.join(currdir, 'css'),
-        'tools.expires.on': True,
-        'tools.expires.secs': 60 * 60 * 24 * 365,
-    },
+    # '/css': {
+    #     'tools.staticdir.on': True,
+    #     'tools.staticdir.dir': os.path.join(currdir, 'css'),
+    #     'tools.expires.on': True,
+    #     'tools.expires.secs': 60 * 60 * 24 * 365,
+    # },
     '/bootstrap': {
         'tools.staticdir.on': True,
         'tools.staticdir.dir': os.path.join(currdir, 'bootstrap'),
@@ -295,12 +292,12 @@ conf = {
         'tools.expires.on': True,
         'tools.expires.secs': 60 * 60 * 24 * 365,
     },
-    '/js': {
-        'tools.staticdir.on': True,
-        'tools.staticdir.dir': os.path.join(currdir, 'js'),
-        'tools.expires.on': True,
-        'tools.expires.secs': 60 * 60 * 24 * 365,
-    }
+    # '/js': {
+    #     'tools.staticdir.on': True,
+    #     'tools.staticdir.dir': os.path.join(currdir, 'js'),
+    #     'tools.expires.on': True,
+    #     'tools.expires.secs': 60 * 60 * 24 * 365,
+    # }
 }
 
 
