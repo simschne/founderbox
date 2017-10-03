@@ -170,8 +170,20 @@ class Root:
     @cherrypy.expose
     def index(self):
         with html.div() as content:
-            html.div('Blabla Irgendwas Disclaimer')
-            html.div(html.a('Ich bin mit den AGBs einverstanden', cls='btn btn-success', href='/step1'))
+
+            html.h1("Herzlich wilkommen beim Gründungsroboter!")
+            html.br()
+
+            html.div("Sie werden in den nächsten fünf Minuten eine Firma gründen.")
+            html.br()
+            with html.div():
+                html.span('Bitte lesen Sie vorher sorgfältig unsere ')
+                html.a('Allgemeinen Geschäftsbedingungen')
+                html.span(' und den ')
+                html.a('Disclaimer')
+            html.br()
+
+            html.div(html.a('Loslegen', cls='btn btn-success', href='/step1'))
         return self.template.render(content=content)
 
     @cherrypy.expose
@@ -188,8 +200,17 @@ class Root:
         if kwargs.get('kanton', None) is None:
             raise cherrypy.HTTPRedirect('/step1')
 
-        form = NewUserForm()
-        return self.template.render(content=form.html(action='/create'))
+        content = html.div()
+
+        row = content.add(html.div(cls='form-group row_vertical_offset'))
+
+        row.add(html.div(html.label('Login suisseID', cls='pull-right'), cls='col-sm-4 control-label'))
+
+        cell = row.add(html.div(cls='col-sm-8'))
+        cell.add(html.img(src='/images/suisse-id.png', style='margin-bottom: 10px; margin-left: -8px; border-radius: 4px;'))
+
+        content.add(NewUserForm().html(action='/create'))
+        return self.template.render(content=content)
 
     @cherrypy.expose
     def download(self, filename):
