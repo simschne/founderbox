@@ -6,7 +6,7 @@ import cherrypy as cherrypy
 import os
 from cherrypy.lib.static import serve_file
 from mailmerge import MailMerge
-from wtforms import Form, StringField, BooleanField
+from wtforms import Form, StringField
 import dominate.tags as html
 from wtforms.fields.core import SelectField
 from wtforms.fields.html5 import DateField
@@ -104,9 +104,6 @@ class SimpleForm(Form):
         return content
 
 
-class OkForm(SimpleForm):
-    einverstanden = SelectField(label='Ich bin einverstanden', choices=(('Ja', 'Ja'), ('Nein', 'Nein')), validators=[InputRequired()])
-
 
 class KantonsForm(SimpleForm):
     kanton = SelectField(label='Kanton', choices=(('Zug', 'Zug'), ('Zürich', 'Zürich')), validators=[InputRequired()])
@@ -149,14 +146,11 @@ class Root:
     def index(self):
         with html.div() as content:
             html.div('Blabla Irgendwas Disclaimer')
-            form = OkForm()
-            form.html(action='/step1')
+            html.button('Ich bin mit den AGBs einverstanden', cls='btn btn-success', href='/step1')
         return self.template.render(content=content)
 
     @cherrypy.expose
-    def step1(self, **kwargs):
-        if kwargs.get('einverstanden') != 'Ja':
-            return self.template.render(content=html.div('Dann halt nicht'))
+    def step1(self):
 
         with html.div() as content:
             html.div('Wählen Sie Ihren Kanton')
@@ -168,9 +162,6 @@ class Root:
     def step2(self, **kwargs):
         form = NewUserForm()
         return self.template.render(content=form.html(action='/create'))
-
-
-
 
     @cherrypy.expose
     def create(self, **kwargs):
