@@ -161,7 +161,7 @@ class Root:
         print(currdir)
         self.documents = [os.path.join(currdir, "documents", "Gruendungsurkunde.docx"),
                           os.path.join(currdir, "documents", "Statuten.docx"),
-                          os.path.join(currdir, "documents", "Wahlannahmeerklärung.doc"),
+                          os.path.join(currdir, "documents", "Wahlannahmeerklaerung.doc"),
                           os.path.join(currdir, "documents", "Lex-Friedrich.docx"),
                           os.path.join(currdir, "documents", "Stampa.docx"),
                           os.path.join(currdir, "documents", "ZKB_Brief.doc")
